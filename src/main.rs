@@ -1,8 +1,8 @@
 use std::mem;
 use winapi::ctypes::{ wchar_t };
 use winapi::um::winnt::{ HANDLE, LPCWSTR, WCHAR };
-use winapi::um::winuser::{ WNDENUMPROC, FindWindowW, GetWindowThreadProcessId };
-use winapi::shared::minwindef::{ MAX_PATH, DWORD, BOOL, LPARAM };
+use winapi::um::winuser::{ WNDENUMPROC, EnumWindows, FindWindowW, GetWindowThreadProcessId };
+use winapi::shared::minwindef::{ MAX_PATH, DWORD, LPARAM, BOOL, TRUE, FALSE };
 use winapi::shared::windef::{ HWND };
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::tlhelp32::{ CreateToolhelp32Snapshot, PROCESSENTRY32, Process32Next, TH32CS_SNAPPROCESS };
@@ -27,8 +27,28 @@ unsafe extern "system" fn get_window_by_proc(id: DWORD) -> HWND {
 
 //BOOL -> c_int -> i32 
 unsafe extern "system" fn enum_wnd_proc(hwnd: HWND, l_param: LPARAM) -> BOOL {
-    let 
-    0
+
+    //Process id of current hwnd
+    let mut dw_proc_id: DWORD = 0x0;
+
+    let designated_hwnd_ptr = l_param as *mut DesignatedHwnd;
+
+    //let dw_proc_id_ptr: *mut DWORD = &mut dw_proc_id; //--- Raw pointer
+
+    //Gets the current process id of hwnd
+    //GetWindowThreadProcessId(hwnd, dw_proc_id_ptr);
+    GetWindowThreadProcessId(hwnd, &mut dw_proc_id);
+
+    if (*designated_hwnd_ptr).dw_proc_id == dw_proc_id {
+
+        (*designated_hwnd_ptr).hwnd = hwnd;
+
+        return FALSE
+    }
+
+    //Continue
+    TRUE
+
 }
 
 //TODO: Free memory
@@ -44,7 +64,7 @@ fn main() {
         }
     };
 
-    let ptr: *mut DesignatedHwnd = &mut designated_hwnd;
+    //let designated_hwnd_ptr: *mut DesignatedHwnd = &mut designated_hwnd; //--- Raw pointer
 
     let hwnd: HWND = unsafe {
         FindWindowW(
@@ -53,7 +73,7 @@ fn main() {
         )
     };
 
-    unsafe { enum_wnd_proc(hwnd, ptr as LPARAM) };
+    unsafe { enum_wnd_proc(hwnd, &mut designated_hwnd as *mut DesignatedHwnd as LPARAM) };
 
     let snapshots: HANDLE = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
 
@@ -67,7 +87,7 @@ fn main() {
         
     }
 
-    let mut pe32: PROCESSENTRY32 = PROCESSENTRY32 {
+    let pe32: *mut PROCESSENTRY32 = &mut PROCESSENTRY32 {
         dwSize: mem::size_of::<PROCESSENTRY32>() as u32,
         cntUsage: 0,
         th32ProcessID: 0,
@@ -80,14 +100,14 @@ fn main() {
         szExeFile: [0; MAX_PATH],
     };
 
-    let pe32_ptr: *mut PROCESSENTRY32 = &mut pe32;
+    //let pe32_ptr: *mut PROCESSENTRY32 = &mut pe32; //--- Raw pointer
     
-    while unsafe { Process32Next(snapshots, pe32_ptr) == 1 } {
+    while unsafe { Process32Next(snapshots, pe32) == 1 } {
 
         let mut pe32_name: String = String::new();
         
         //TODO: Data parallelization (chunks_exact)
-        for c in unsafe { (*pe32_ptr).szExeFile.iter() } {
+        for c in unsafe { (*pe32).szExeFile.iter() } {
 
             match *c {
 
@@ -99,7 +119,7 @@ fn main() {
                 
         }
 
-        println!("{:?} --- {:?}", pe32_name, unsafe { (*pe32_ptr).th32ProcessID });
+        println!("{:?} --- {:?}", pe32_name, unsafe { (*pe32).th32ProcessID });
 
     }
 
