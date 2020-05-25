@@ -1,4 +1,5 @@
 use std::mem;
+use std::ffi::CStr;
 use std::thread::sleep;
 use std::time::Duration;
 use winapi;
@@ -6,9 +7,9 @@ use winapi::ctypes::{ wchar_t };
 use winapi::um::winnt::{ HANDLE, LPCWSTR, WCHAR, CHAR };
 use winapi::um::winuser::{ WNDENUMPROC, EnumWindows, FindWindowW, GetWindowThreadProcessId,
                            PostThreadMessageW, PostMessageW, SendMessageW, SetForegroundWindow, WM_KEYDOWN, VK_LEFT, WM_KEYUP, INPUT, INPUT_u, INPUT_KEYBOARD,
-                           KEYBDINPUT, PostMessageA, PostThreadMessageA, SendMessageA, GUITHREADINFO, GetGUIThreadInfo, GetWindowTextA };
+                           KEYBDINPUT, PostMessageA, PostThreadMessageA, SendMessageA, GUITHREADINFO, GetGUIThreadInfo, GetWindowTextA, FindWindowExW };
 use winapi::shared::minwindef::{ MAX_PATH, DWORD, LPARAM, BOOL, TRUE, FALSE };
-use winapi::shared::windef::{ HWND };
+use winapi::shared::windef::{ HWND, RECT };
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::tlhelp32::{ CreateToolhelp32Snapshot, PROCESSENTRY32, Process32Next, TH32CS_SNAPPROCESS };
 use winapi::um::processthreadsapi::OpenProcess;
@@ -50,14 +51,14 @@ unsafe extern "system" fn enum_wnd_proc(hwnd: HWND, l_param: LPARAM) -> BOOL {
 
         (*target_wnd_ptr).hwnd = hwnd;
 
-        println!("HWND found: {:?}", dw_proc_id);
+        println!("HWND found with PID: {:?} --- TID: {:?}", dw_proc_id, (*target_wnd_ptr).dw_thread_id);
 
         //Found hwnd --- FALSE -> i32
         return FALSE
 
     }
 
-    println!("HWND not found: {:?}", dw_proc_id);
+    //println!("HWND not found: {:?}", dw_proc_id);
 
     //Continue enumeration w/ EnumWindows --- TRUE -> i32
     TRUE
@@ -66,38 +67,83 @@ unsafe extern "system" fn enum_wnd_proc(hwnd: HWND, l_param: LPARAM) -> BOOL {
 
 pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
 
-    //Get the window belonging to the hwnd
-    //let mut window_name_buf: [i8; 128] = [0x0; 128];
-    //let mut ptr: *mut CHAR = &mut window_name_buf;
-    let mut window_name_buffer = Vec::with_capacity(1024);
-
-    let f = GetWindowTextA(window.hwnd, window_name_buffer.as_mut_ptr(), 1024);
-
-    println!("Found window with the following name: {:?}", f);
-
-    //Set focus to window then delay key press
+    //Set focus to window
     SetForegroundWindow(window.hwnd);
 
-    sleep(Duration::from_millis(500));
+    //Account for window focusing delay
+    //sleep(Duration::from_millis(1000));
 
-    //Get thread that owns hwnd
-    let thread_info: *mut GUITHREADINFO = std::ptr::null_mut(); //--- Raw pointer
+    //Checking window name
+    let mut window_name_buffer: Vec<CHAR> = Vec::with_capacity(1024);
 
-    match GetGUIThreadInfo(window.dw_thread_id, thread_info) {
+    match GetWindowTextA(window.hwnd, window_name_buffer.as_mut_ptr(), 1024) {
 
-        0 => println!("Thread info not found..."),
+        0 => {
 
-        1 => println!("Thread info found -- focusing on hwnd: {:?}", (*thread_info).hwndFocus),
+            println!("Window was not found...");
 
-        _ => (),
+            return
+
+        },
+
+        _ => println!("Found window with the following name: {:?}", CStr::from_ptr(window_name_buffer.as_mut_ptr())),
 
     };
 
-    PostThreadMessageA(window.dw_thread_id, WM_KEYDOWN, 0x31, 0x2);
-    PostMessageA(window.hwnd, WM_KEYDOWN, 0x31, 0x2);
-    PostMessageA(window.hwnd, WM_KEYUP, 0x31, 0x2);
-    SendMessageA(window.hwnd, WM_KEYDOWN, 0x31, 0x2);
-    println!("Sending key for PID: {:?} --- TID: {:?}", window.dw_proc_id, window.dw_thread_id);
+    let hwnd: HWND = FindWindowW(
+        0x0 as *const WCHAR as LPCWSTR,
+        0x0 as *const WCHAR as LPCWSTR,
+    );
+
+    //Get thread that owns the hwnd to the window
+    let mut thread_info: GUITHREADINFO = GUITHREADINFO {
+        cbSize: 1024,
+        flags: 0x0,
+        hwndActive: FindWindowW(
+            0x0 as *const WCHAR as LPCWSTR,
+            0x0 as *const WCHAR as LPCWSTR,
+        ),
+        hwndFocus: FindWindowW(
+            0x0 as *const WCHAR as LPCWSTR,
+            0x0 as *const WCHAR as LPCWSTR,
+        ),
+        hwndCapture: FindWindowW(
+            0x0 as *const WCHAR as LPCWSTR,
+            0x0 as *const WCHAR as LPCWSTR,
+        ),
+        hwndMenuOwner: FindWindowW(
+            0x0 as *const WCHAR as LPCWSTR,
+            0x0 as *const WCHAR as LPCWSTR,
+        ),
+        hwndMoveSize: FindWindowW(
+            0x0 as *const WCHAR as LPCWSTR,
+            0x0 as *const WCHAR as LPCWSTR,
+        ),
+        hwndCaret: FindWindowW(
+            0x0 as *const WCHAR as LPCWSTR,
+            0x0 as *const WCHAR as LPCWSTR,
+        ),
+        rcCaret: RECT {
+            left: 0x0,
+            top: 0x0,
+            right: 0x0,
+            bottom: 0x0,
+        }
+    };
+
+    match GetGUIThreadInfo(window.dw_thread_id, &mut thread_info as *mut GUITHREADINFO) {
+
+        0 => println!("Thread info not found..."),
+
+        _ => println!("Thread info found -- focusing on hwnd: {:?}", thread_info.hwndFocus),
+
+    };
+
+    //PostThreadMessageA(window.dw_thread_id, WM_KEYDOWN, 0x31, 0x2);
+    PostMessageA(window.hwnd, WM_KEYDOWN, 0x31, 0);
+    PostMessageA(window.hwnd, WM_KEYUP, 0x31, 0);
+    //SendMessageA(window.hwnd, WM_KEYDOWN, 0x31, 0x2);
+    //println!("Sending key for PID: {:?} --- TID: {:?}", window.dw_proc_id, window.dw_thread_id);
 
 }
 
@@ -108,7 +154,7 @@ fn main() {
 
     let mut target: TargetWindow = unsafe {
         TargetWindow {
-            dw_proc_id: 10132,
+            dw_proc_id: 3776,
             dw_thread_id: 0x0,
             hwnd: FindWindowW(
                 0x0 as *const WCHAR as LPCWSTR,
@@ -118,13 +164,18 @@ fn main() {
     };
 
     //let target_hwnd: *mut TargetWindow = &mut designated_hwnd; //--- Raw pointer
+    let window_name: Vec<char> = "Untitled - Notepad".chars().collect();
 
     let hwnd: HWND = unsafe {
-        FindWindowW(
-            0x0 as *const WCHAR as LPCWSTR,
-            0x0 as *const WCHAR as LPCWSTR,
+        FindWindowExW(
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            window_name.as_ptr() as LPCWSTR,
+            std::ptr::null(),
         )
     };
+
+    println!("WINDOW -- {:?}", hwnd);
 
     unsafe { EnumWindows(Some(enum_wnd_proc), &mut target as *mut TargetWindow as LPARAM) };
 
