@@ -7,7 +7,8 @@ use winapi::ctypes::{ wchar_t };
 use winapi::um::winnt::{ HANDLE, LPCWSTR, WCHAR, CHAR };
 use winapi::um::winuser::{ WNDENUMPROC, EnumWindows, FindWindowW, GetWindowThreadProcessId,
                            PostThreadMessageW, PostMessageW, SendMessageW, SetForegroundWindow, WM_KEYDOWN, VK_LEFT, WM_KEYUP, INPUT, INPUT_u, INPUT_KEYBOARD,
-                           KEYBDINPUT, PostMessageA, PostThreadMessageA, SendMessageA, GUITHREADINFO, GetGUIThreadInfo, GetWindowTextA, FindWindowExW };
+                           KEYBDINPUT, PostMessageA, PostThreadMessageA, SendMessageA, GUITHREADINFO, GetGUIThreadInfo, GetWindowTextA, FindWindowExW, SendInput, SetFocus,
+                           SetActiveWindow, ShowWindow, FindWindowA };
 use winapi::shared::minwindef::{ MAX_PATH, DWORD, LPARAM, BOOL, TRUE, FALSE };
 use winapi::shared::windef::{ HWND, RECT };
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
@@ -67,8 +68,18 @@ unsafe extern "system" fn enum_wnd_proc(hwnd: HWND, l_param: LPARAM) -> BOOL {
 
 pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
 
+    let pkmn = std::ffi::CString::new("Untitled - Notepad").unwrap();
+
+    let wnd: HWND = FindWindowA(std::ptr::null_mut(), pkmn.as_ptr());
+
+    println!("{:?}", wnd);
+
+    sleep(Duration::from_millis(2000));
     //Set focus to window
-    SetForegroundWindow(window.hwnd);
+    ShowWindow(window.hwnd, 1);
+    //SetFocus(window.hwnd);
+    //SetActiveWindow(window.hwnd);
+    //SetForegroundWindow(window.hwnd);
 
     //Account for window focusing delay
     //sleep(Duration::from_millis(1000));
@@ -90,54 +101,25 @@ pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
 
     };
 
-    let hwnd: HWND = FindWindowW(
-        0x0 as *const WCHAR as LPCWSTR,
-        0x0 as *const WCHAR as LPCWSTR,
-    );
+    //TODO: Try and send an array of inputs
+    let mut input_u: INPUT_u = mem::zeroed();
 
-    //Get thread that owns the hwnd to the window
-    let mut thread_info: GUITHREADINFO = GUITHREADINFO {
-        cbSize: 1024,
-        flags: 0x0,
-        hwndActive: FindWindowW(
-            0x0 as *const WCHAR as LPCWSTR,
-            0x0 as *const WCHAR as LPCWSTR,
-        ),
-        hwndFocus: FindWindowW(
-            0x0 as *const WCHAR as LPCWSTR,
-            0x0 as *const WCHAR as LPCWSTR,
-        ),
-        hwndCapture: FindWindowW(
-            0x0 as *const WCHAR as LPCWSTR,
-            0x0 as *const WCHAR as LPCWSTR,
-        ),
-        hwndMenuOwner: FindWindowW(
-            0x0 as *const WCHAR as LPCWSTR,
-            0x0 as *const WCHAR as LPCWSTR,
-        ),
-        hwndMoveSize: FindWindowW(
-            0x0 as *const WCHAR as LPCWSTR,
-            0x0 as *const WCHAR as LPCWSTR,
-        ),
-        hwndCaret: FindWindowW(
-            0x0 as *const WCHAR as LPCWSTR,
-            0x0 as *const WCHAR as LPCWSTR,
-        ),
-        rcCaret: RECT {
-            left: 0x0,
-            top: 0x0,
-            right: 0x0,
-            bottom: 0x0,
-        }
+    *input_u.ki_mut() = KEYBDINPUT {
+            wVk: 0x25,
+            dwExtraInfo: 0,
+            wScan: 0,
+            time: 0,
+            dwFlags: 0x0
     };
 
-    match GetGUIThreadInfo(window.dw_thread_id, &mut thread_info as *mut GUITHREADINFO) {
-
-        0 => println!("Thread info not found..."),
-
-        _ => println!("Thread info found -- focusing on hwnd: {:?}", thread_info.hwndFocus),
-
+    let mut input: INPUT = INPUT {
+        type_: INPUT_KEYBOARD,
+        u: input_u,
     };
+
+    let ipsize: i32 = mem::size_of::<INPUT>() as i32;
+
+    SendInput(1, &mut input, ipsize);
 
     //PostThreadMessageA(window.dw_thread_id, WM_KEYDOWN, 0x31, 0x2);
     PostMessageA(window.hwnd, WM_KEYDOWN, 0x31, 0);
@@ -154,7 +136,7 @@ fn main() {
 
     let mut target: TargetWindow = unsafe {
         TargetWindow {
-            dw_proc_id: 3776,
+            dw_proc_id: 5108,
             dw_thread_id: 0x0,
             hwnd: FindWindowW(
                 0x0 as *const WCHAR as LPCWSTR,
@@ -174,8 +156,6 @@ fn main() {
             std::ptr::null(),
         )
     };
-
-    println!("WINDOW -- {:?}", hwnd);
 
     unsafe { EnumWindows(Some(enum_wnd_proc), &mut target as *mut TargetWindow as LPARAM) };
 
@@ -244,4 +224,6 @@ fn main() {
    //https://github.com/retep998/winapi-rs/issues/746
    //https://dailyoverdose.wordpress.com/2009/10/28/postmessage-and-sendmessage/
    //https://stackoverflow.com/questions/11890972/simulating-key-press-with-postmessage-only-works-in-some-applications
+   //https://stackoverflow.com/questions/22419038/how-to-use-sendinput-function-c
+   //https://gist.github.com/lucia7777/d1c1b512d6843071144b7b89109a8de2
 }
