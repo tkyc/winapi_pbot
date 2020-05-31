@@ -8,7 +8,7 @@ use winapi::um::winnt::{ HANDLE, LPCWSTR, WCHAR, CHAR };
 use winapi::um::winuser::{ WNDENUMPROC, EnumWindows, FindWindowW, GetWindowThreadProcessId,
                            PostThreadMessageW, PostMessageW, SendMessageW, SetForegroundWindow, WM_KEYDOWN, VK_LEFT, WM_KEYUP, INPUT, INPUT_u, INPUT_KEYBOARD,
                            KEYBDINPUT, PostMessageA, PostThreadMessageA, SendMessageA, GUITHREADINFO, GetGUIThreadInfo, GetWindowTextA, FindWindowExW, SendInput, SetFocus,
-                           SetActiveWindow, ShowWindow, FindWindowA };
+                           SetActiveWindow, ShowWindow, FindWindowA, FindWindowExA, GetForegroundWindow };
 use winapi::shared::minwindef::{ MAX_PATH, DWORD, LPARAM, BOOL, TRUE, FALSE };
 use winapi::shared::windef::{ HWND, RECT };
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
@@ -68,18 +68,43 @@ unsafe extern "system" fn enum_wnd_proc(hwnd: HWND, l_param: LPARAM) -> BOOL {
 
 pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
 
-    let pkmn = std::ffi::CString::new("Untitled - Notepad").unwrap();
+    //let pkmn = std::ffi::CString::new("Untitled - Notepad").unwrap();
+    let pkmn = std::ffi::CString::new("?ok???O").unwrap();
 
+    //FindWindowEx maybe?
     let wnd: HWND = FindWindowA(std::ptr::null_mut(), pkmn.as_ptr());
+    let wnd0: HWND = FindWindowExA( std::ptr::null_mut(), std::ptr::null_mut(), pkmn.as_ptr(), std::ptr::null());
+    sleep(std::time::Duration::from_millis(2000));
+    let wnd1: HWND = GetForegroundWindow();
 
-    println!("{:?}", wnd);
+    println!("First: {:?}", wnd);
+    println!("Second: {:?}", wnd0);
+    println!("Third: {:?}", wnd1);
 
-    sleep(Duration::from_millis(2000));
+    //sleep(Duration::from_millis(2000));
     //Set focus to window
-    ShowWindow(window.hwnd, 1);
+    //ShowWindow(window.hwnd, 1);
     //SetFocus(window.hwnd);
     //SetActiveWindow(window.hwnd);
-    //SetForegroundWindow(window.hwnd);
+    SetForegroundWindow(window.hwnd);
+
+    let mut wnd1name: Vec<CHAR> = Vec::with_capacity(1024);
+
+    match GetWindowTextA(wnd1, wnd1name.as_mut_ptr(), 1024) {
+
+        0 => {
+
+            println!("wnd1 was not found...");
+
+            return
+
+        },
+
+        _ => println!("Found wnd1 with the following name: {:?}", CStr::from_ptr(wnd1name.as_mut_ptr())),
+
+    };
+
+    println!("{:?}", wnd1name.len());
 
     //Account for window focusing delay
     //sleep(Duration::from_millis(1000));
@@ -122,8 +147,8 @@ pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
     SendInput(1, &mut input, ipsize);
 
     //PostThreadMessageA(window.dw_thread_id, WM_KEYDOWN, 0x31, 0x2);
-    PostMessageA(window.hwnd, WM_KEYDOWN, 0x31, 0);
-    PostMessageA(window.hwnd, WM_KEYUP, 0x31, 0);
+    //PostMessageA(window.hwnd, WM_KEYDOWN, 0x31, 0);
+    //PostMessageA(window.hwnd, WM_KEYUP, 0x31, 0);
     //SendMessageA(window.hwnd, WM_KEYDOWN, 0x31, 0x2);
     //println!("Sending key for PID: {:?} --- TID: {:?}", window.dw_proc_id, window.dw_thread_id);
 
@@ -136,7 +161,7 @@ fn main() {
 
     let mut target: TargetWindow = unsafe {
         TargetWindow {
-            dw_proc_id: 5108,
+            dw_proc_id: 10108,
             dw_thread_id: 0x0,
             hwnd: FindWindowW(
                 0x0 as *const WCHAR as LPCWSTR,
