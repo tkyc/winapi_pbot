@@ -8,7 +8,7 @@ use winapi::um::winnt::{ HANDLE, LPCWSTR, WCHAR, CHAR };
 use winapi::um::winuser::{ WNDENUMPROC, EnumWindows, FindWindowW, GetWindowThreadProcessId,
                            PostThreadMessageW, PostMessageW, SendMessageW, SetForegroundWindow, WM_KEYDOWN, VK_LEFT, WM_KEYUP, INPUT, INPUT_u, INPUT_KEYBOARD,
                            KEYBDINPUT, PostMessageA, PostThreadMessageA, SendMessageA, GUITHREADINFO, GetGUIThreadInfo, GetWindowTextA, FindWindowExW, SendInput, SetFocus,
-                           SetActiveWindow, ShowWindow, FindWindowA, FindWindowExA, GetForegroundWindow };
+                           SetActiveWindow, ShowWindow, FindWindowA, FindWindowExA, GetForegroundWindow, KEYEVENTF_UNICODE, KEYEVENTF_SCANCODE, KEYEVENTF_KEYUP };
 use winapi::shared::minwindef::{ MAX_PATH, DWORD, LPARAM, BOOL, TRUE, FALSE };
 use winapi::shared::windef::{ HWND, RECT };
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
@@ -69,10 +69,10 @@ unsafe extern "system" fn enum_wnd_proc(hwnd: HWND, l_param: LPARAM) -> BOOL {
 pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
 
     //let pkmn = std::ffi::CString::new("Untitled - Notepad").unwrap();
-    let pkmn = std::ffi::CString::new("?ok???O").unwrap();
+    let pkmn = std::ffi::CString::new("PokeMMO").unwrap();
 
     //FindWindowEx maybe?
-    let wnd: HWND = FindWindowA(std::ptr::null_mut(), pkmn.as_ptr());
+    let wnd: HWND = FindWindowW(std::ptr::null_mut(), pkmn.as_ptr() as *const u16);
     let wnd0: HWND = FindWindowExA( std::ptr::null_mut(), std::ptr::null_mut(), pkmn.as_ptr(), std::ptr::null());
     sleep(std::time::Duration::from_millis(2000));
     let wnd1: HWND = GetForegroundWindow();
@@ -80,6 +80,8 @@ pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
     println!("First: {:?}", wnd);
     println!("Second: {:?}", wnd0);
     println!("Third: {:?}", wnd1);
+
+    println!("window.hwnd: {:?}", window.hwnd);
 
     //sleep(Duration::from_millis(2000));
     //Set focus to window
@@ -130,11 +132,11 @@ pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
     let mut input_u: INPUT_u = mem::zeroed();
 
     *input_u.ki_mut() = KEYBDINPUT {
-            wVk: 0x25,
+            wVk: 0x41,
             dwExtraInfo: 0,
             wScan: 0,
             time: 0,
-            dwFlags: 0x0
+            dwFlags: 0,
     };
 
     let mut input: INPUT = INPUT {
@@ -144,12 +146,38 @@ pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
 
     let ipsize: i32 = mem::size_of::<INPUT>() as i32;
 
-    SendInput(1, &mut input, ipsize);
+    //SendInput(1, &mut input, ipsize);
 
-    //PostThreadMessageA(window.dw_thread_id, WM_KEYDOWN, 0x31, 0x2);
-    //PostMessageA(window.hwnd, WM_KEYDOWN, 0x31, 0);
-    //PostMessageA(window.hwnd, WM_KEYUP, 0x31, 0);
-    //SendMessageA(window.hwnd, WM_KEYDOWN, 0x31, 0x2);
+    let mut input_ur: INPUT_u = mem::zeroed();
+
+    *input_ur.ki_mut() = KEYBDINPUT {
+            wVk: 0x41,
+            dwExtraInfo: 0,
+            wScan: 0,
+            time: 0,
+            dwFlags: KEYEVENTF_KEYUP,
+    };
+
+    let mut input_r: INPUT = INPUT {
+        type_: INPUT_KEYBOARD,
+        u: input_ur,
+    };
+
+
+    //SendInput(1, &mut input_r, ipsize);
+
+    //input_u.ki_mut().dwFlags = KEYEVENTF_SCANCODE;
+
+    let mut tid: DWORD = 0x0;
+    GetWindowThreadProcessId(wnd1, &mut tid);
+
+    println!("TID: {:?}", tid);
+
+    //PostThreadMessageA(tid, WM_KEYDOWN, 0x41, 0x1);
+    //PostMessageA(wnd1, WM_KEYDOWN, 0x25, 0);
+    //PostMessageA(wnd1, WM_KEYDOWN, 0x25, 0);
+    PostMessageA(wnd1, WM_KEYUP, 0x25, 0);
+    //SendMessageA(wnd1, WM_KEYDOWN, 0x41, 0x0);
     //println!("Sending key for PID: {:?} --- TID: {:?}", window.dw_proc_id, window.dw_thread_id);
 
 }
@@ -161,7 +189,7 @@ fn main() {
 
     let mut target: TargetWindow = unsafe {
         TargetWindow {
-            dw_proc_id: 10108,
+            dw_proc_id: 6540,
             dw_thread_id: 0x0,
             hwnd: FindWindowW(
                 0x0 as *const WCHAR as LPCWSTR,
@@ -251,4 +279,6 @@ fn main() {
    //https://stackoverflow.com/questions/11890972/simulating-key-press-with-postmessage-only-works-in-some-applications
    //https://stackoverflow.com/questions/22419038/how-to-use-sendinput-function-c
    //https://gist.github.com/lucia7777/d1c1b512d6843071144b7b89109a8de2
+   //https://www.autohotkey.com/boards/viewtopic.php?t=38118
+   //http://forums.codeguru.com/showthread.php?555185-RESOLVED-how-use-SendInput()-for-a-non-focus-window
 }
