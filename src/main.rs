@@ -1,3 +1,8 @@
+mod utils;
+
+use utils::keyboard;
+use utils::keyboard::VirtualKey;
+
 use std::mem;
 use std::ffi::CStr;
 use std::thread::sleep;
@@ -10,7 +15,7 @@ use winapi::um::winuser::{ WNDENUMPROC, EnumWindows, FindWindowW, GetWindowThrea
                            KEYBDINPUT, PostMessageA, PostThreadMessageA, SendMessageA, GUITHREADINFO, GetGUIThreadInfo, GetWindowTextA, FindWindowExW, SendInput, SetFocus,
                            SetActiveWindow, ShowWindow, FindWindowA, FindWindowExA, GetForegroundWindow, KEYEVENTF_UNICODE, KEYEVENTF_SCANCODE, KEYEVENTF_KEYUP,
                            LPINPUT, MapVirtualKeyW };
-use winapi::shared::minwindef::{ MAX_PATH, DWORD, LPARAM, BOOL, TRUE, FALSE };
+use winapi::shared::minwindef::{ MAX_PATH, DWORD, LPARAM, BOOL, TRUE, FALSE, WPARAM };
 use winapi::shared::windef::{ HWND, RECT };
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::tlhelp32::{ CreateToolhelp32Snapshot, PROCESSENTRY32, Process32Next, TH32CS_SNAPPROCESS };
@@ -77,6 +82,8 @@ pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
     let wnd0: HWND = FindWindowExA( std::ptr::null_mut(), std::ptr::null_mut(), pkmn.as_ptr(), std::ptr::null());
     sleep(std::time::Duration::from_millis(2000));
     let wnd1: HWND = GetForegroundWindow();
+    println!("Got hwnd----------------");
+    sleep(std::time::Duration::from_millis(1000));
 
     println!("First: {:?}", wnd);
     println!("Second: {:?}", wnd0);
@@ -107,31 +114,10 @@ pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
 
     };
 
-    println!("{:?}", wnd1name.len());
-
-    //Account for window focusing delay
-    //sleep(Duration::from_millis(1000));
-
-    //Checking window name
-    let mut window_name_buffer: Vec<CHAR> = Vec::with_capacity(1024);
-
-    match GetWindowTextA(window.hwnd, window_name_buffer.as_mut_ptr(), 1024) {
-
-        0 => {
-
-            println!("Window was not found...");
-
-            return
-
-        },
-
-        _ => println!("Found window with the following name: {:?}", CStr::from_ptr(window_name_buffer.as_mut_ptr())),
-
-    };
-
     //TODO: Try and send an array of inputs
     //let mut input_u: INPUT_u = mem::zeroed();
 
+    keyboard::key_down(VirtualKey::A);
     //let mut input: INPUT = INPUT {
     //    type_: INPUT_KEYBOARD,
     //    u: mem::transmute_copy(&KEYBDINPUT {
@@ -148,9 +134,11 @@ pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
     //PostThreadMessageA(tid, WM_KEYDOWN, 0x41, 0x1);
     //PostMessageA(wnd1, WM_KEYDOWN, 0x25, 0);
     //PostMessageA(wnd1, WM_KEYDOWN, 0x25, 0);
-    let key: u32 = MapVirtualKeyW(0x41, 0x0);
 
-    PostMessageA(wnd1, WM_KEYDOWN,  as usize, 0x1);
+    //let scan_key: u32 = MapVirtualKeyW(0x41, 0x0);
+    //let key: u32 = 0x41;
+
+    //PostMessageA(wnd1, WM_KEYDOWN, key as WPARAM, 0);
     //SendMessageA(wnd1, WM_KEYDOWN, 0x41, 0x0);
     //println!("Sending key for PID: {:?} --- TID: {:?}", window.dw_proc_id, window.dw_thread_id);
 
