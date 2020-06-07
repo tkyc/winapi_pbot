@@ -2,6 +2,9 @@ use std::mem;
 use winapi::ctypes::{
     c_int 
 };
+use winapi::shared::windef::{
+    HWND,
+};
 use winapi::shared::minwindef::{
     UINT,
     DWORD,
@@ -13,7 +16,7 @@ use winapi::um::winuser::{
     KEYEVENTF_KEYUP, 
     INPUT_KEYBOARD, 
     INPUT,
-    SendInput
+    SendInput,
 };
 
 
@@ -191,6 +194,12 @@ unsafe fn send_key(vk: VirtualKey, flags: DWORD) {
 
     SendInput(1, &mut input, mem::size_of::<INPUT>() as c_int);
 
+}
+
+
+
+unsafe fn send_key_to_hwnd(hwnd: HWND) {
+    //TODO: PostMessage or AttachThreadInput?
 }
 
 

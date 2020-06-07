@@ -14,12 +14,12 @@ use winapi::um::winuser::{ WNDENUMPROC, EnumWindows, FindWindowW, GetWindowThrea
                            PostThreadMessageW, PostMessageW, SendMessageW, SetForegroundWindow, WM_KEYDOWN, VK_LEFT, WM_KEYUP, INPUT, INPUT_u, INPUT_KEYBOARD,
                            KEYBDINPUT, PostMessageA, PostThreadMessageA, SendMessageA, GUITHREADINFO, GetGUIThreadInfo, GetWindowTextA, FindWindowExW, SendInput, SetFocus,
                            SetActiveWindow, ShowWindow, FindWindowA, FindWindowExA, GetForegroundWindow, KEYEVENTF_UNICODE, KEYEVENTF_SCANCODE, KEYEVENTF_KEYUP,
-                           LPINPUT, MapVirtualKeyW };
+                           LPINPUT, MapVirtualKeyW, AttachThreadInput, VK_RETURN, };
 use winapi::shared::minwindef::{ MAX_PATH, DWORD, LPARAM, BOOL, TRUE, FALSE, WPARAM };
 use winapi::shared::windef::{ HWND, RECT };
 use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 use winapi::um::tlhelp32::{ CreateToolhelp32Snapshot, PROCESSENTRY32, Process32Next, TH32CS_SNAPPROCESS };
-use winapi::um::processthreadsapi::OpenProcess;
+use winapi::um::processthreadsapi::{ GetCurrentThreadId };
 use winapi::um::memoryapi::ReadProcessMemory;
 
 
@@ -83,7 +83,7 @@ pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
     sleep(std::time::Duration::from_millis(2000));
     let wnd1: HWND = GetForegroundWindow();
     println!("Got hwnd----------------");
-    sleep(std::time::Duration::from_millis(1000));
+    sleep(std::time::Duration::from_millis(3000));
 
     println!("First: {:?}", wnd);
     println!("Second: {:?}", wnd0);
@@ -114,33 +114,33 @@ pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
 
     };
 
-    //TODO: Try and send an array of inputs
-    //let mut input_u: INPUT_u = mem::zeroed();
-
-    keyboard::key_down(VirtualKey::A);
-    //let mut input: INPUT = INPUT {
-    //    type_: INPUT_KEYBOARD,
-    //    u: mem::transmute_copy(&KEYBDINPUT {
-    //        wVk: 0x0,
-    //        wScan: MapVirtualKeyW(0x41, 0x0) as u16,
-    //        dwFlags: KEYEVENTF_SCANCODE,
-    //        time: 0x0,
-    //        dwExtraInfo: 0x0,
-    //    }),
-    //};
-
-    //SendInput(1, &mut input as LPINPUT, mem::size_of::<INPUT>() as c_int);
 
     //PostThreadMessageA(tid, WM_KEYDOWN, 0x41, 0x1);
-    //PostMessageA(wnd1, WM_KEYDOWN, 0x25, 0);
+    //PostMessageA(wnd1, WM_KEYDOWN, 0x41, 0);
+    //PostMessageA(wnd1, WM_KEYUP, 0x41, 0);
+
     //PostMessageA(wnd1, WM_KEYDOWN, 0x25, 0);
 
     //let scan_key: u32 = MapVirtualKeyW(0x41, 0x0);
     //let key: u32 = 0x41;
 
-    //PostMessageA(wnd1, WM_KEYDOWN, key as WPARAM, 0);
-    //SendMessageA(wnd1, WM_KEYDOWN, 0x41, 0x0);
+    //PostMessageA(wnd1, WM_KEYDOWN, 0x41 as usize, 0);
     //println!("Sending key for PID: {:?} --- TID: {:?}", window.dw_proc_id, window.dw_thread_id);
+
+    let dw_target_tid: DWORD = GetWindowThreadProcessId(wnd1, std::ptr::null_mut());
+    let dw_calling_tid: DWORD = GetCurrentThreadId();
+
+    let is_attached: BOOL = AttachThreadInput(dw_calling_tid, dw_target_tid, -1);
+
+    //keyboard::key_down(VirtualKey::A);
+    //sleep(Duration::from_millis(2000));
+    //keyboard::key_up(VirtualKey::A);
+
+    println!("IS_ATTACHED: {:?}", is_attached);
+
+    //SendMessageA(wnd1, WM_KEYDOWN, 0x41, 0x1);
+    //SendMessageW(wnd1, WM_KEYDOWN, 0x41, 0x1);
+    //PostThreadMessageA(dw_target_tid, WM_KEYDOWN, 0x41, 0x1);
 
 }
 
@@ -245,4 +245,5 @@ fn main() {
    //http://forums.codeguru.com/showthread.php?555185-RESOLVED-how-use-SendInput()-for-a-non-focus-window
    //https://github.com/enigo-rs/enigo
    //https://github.com/enigo-rs/enigo/blob/master/src/win/win_impl.rs
+   //https://stackoverflow.com/questions/9503027/pinvoke-setfocus-to-a-particular-control/9547099#9547099
 }
