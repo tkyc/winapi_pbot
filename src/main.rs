@@ -58,7 +58,11 @@ unsafe extern "system" fn enum_wnd_proc(hwnd: HWND, l_param: LPARAM) -> BOOL {
 
         (*target_wnd_ptr).hwnd = hwnd;
 
-        println!("HWND found with PID: {:?} --- TID: {:?}", dw_proc_id, (*target_wnd_ptr).dw_thread_id);
+        println!("Found HWND {:?} with --- PID: {:?} --- TID: {:?}", hwnd, dw_proc_id, (*target_wnd_ptr).dw_thread_id);
+
+        sleep(Duration::from_millis(1000));
+
+        println!("Focused HWND is {:?}", GetForegroundWindow());
 
         //Found hwnd --- FALSE -> i32
         return FALSE
@@ -151,7 +155,7 @@ fn main() {
 
     let mut target: TargetWindow = unsafe {
         TargetWindow {
-            dw_proc_id: 6540,
+            dw_proc_id: 7884,
             dw_thread_id: 0x0,
             hwnd: FindWindowW(
                 0x0 as *const WCHAR as LPCWSTR,
@@ -174,13 +178,14 @@ fn main() {
 
     unsafe { EnumWindows(Some(enum_wnd_proc), &mut target as *mut TargetWindow as LPARAM) };
 
-    unsafe { send_key_to(&target) };
+    //unsafe { send_key_to(&target) };
 
     //loop {
 
     //    unsafe { send_key_to(&target) };
 
     //}
+
     //let snapshots: HANDLE = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
 
     //if snapshots == INVALID_HANDLE_VALUE {

@@ -1,5 +1,5 @@
 [package]
-name = "pkmnbot"
+name = "pbot"
 version = "0.1.0"
 authors = ["TKYC <terrykyc.7000@gmail.com>"]
 edition = "2018"
