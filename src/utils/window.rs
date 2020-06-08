@@ -1,8 +1,22 @@
 use std::mem;
+use std::ffi::CStr;
 use std::thread::sleep;
 use std::time::Duration;
+use winapi::um::tlhelp32::{
+    CreateToolhelp32Snapshot,
+    Module32First,
+    MODULEENTRY32,
+    TH32CS_SNAPMODULE,
+};
+use winapi::um::handleapi::{
+    CloseHandle,
+};
 use winapi::shared::windef::{
     HWND,
+};
+use winapi::um::winnt::{
+    CHAR,
+    HANDLE,
 };
 use winapi::shared::minwindef::{
     DWORD,
@@ -12,8 +26,10 @@ use winapi::shared::minwindef::{
     LPARAM,
 };
 use winapi::um::winuser::{
+    GetWindowTextA,
     GetWindowThreadProcessId,
     GetForegroundWindow,
+    EnumWindows,
 };
 
 
@@ -30,14 +46,55 @@ impl HwndTarget {
 
     pub fn from_pid(target_pid: DWORD) -> HwndTarget {
 
-        let mut h_target: HwndTarget = Default::default();
+        let mut h_target = HwndTarget {
+            dw_pid: target_pid,
+            dw_tid: 0x0,
+            hwnd: std::ptr::null_mut(),
+        };
 
-        unsafe { };
+        unsafe { EnumWindows(Some(HwndTarget::enum_processes_callback), &mut h_target as *mut HwndTarget as LPARAM) };
 
         h_target
+
     }
 
-    unsafe fn enum_callback(hwnd: HWND, l_param: LPARAM) -> BOOL {
+    pub unsafe fn get_base_addr(&self, module_name: String) -> DWORD {
+
+        //Variable to hold the base address of the module
+        let mut base_addr: DWORD = 0x0;
+
+        //Get info (snapshot) of heaps, modules and threads on the process specified by pid
+        let h_snapshot: HANDLE = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, self.dw_pid);
+
+        //The module being looked at -- getting the base address for this
+        let mut me32: MODULEENTRY32 = mem::zeroed();
+        me32.dwSize = mem::size_of::<MODULEENTRY32>() as DWORD;
+
+        //Find the module that matches module_name and get the address
+        while Module32First(h_snapshot, &mut me32) == TRUE {
+
+            let me32_name = me32.szModule.into_iter().map(|&c| { c as u8 as char});
+            let me32_name: String = me32_name.into_iter().collect();
+
+            println!("Found module [{:?}] --- searching for module [{:?}]", me32_name, module_name);
+
+            if me32_name.eq(&module_name) {
+
+                base_addr = me32.modBaseAddr as DWORD;
+
+                break;
+
+            }
+            
+        };
+
+        CloseHandle(h_snapshot);
+
+        base_addr
+
+    }
+
+    unsafe extern "system" fn enum_processes_callback(hwnd: HWND, l_param: LPARAM) -> BOOL {
 
         //Process id of current hwnd
         let mut dw_pid: DWORD = 0x0;
@@ -49,16 +106,18 @@ impl HwndTarget {
         //Raw pointers (*mut and *const) are the same as references -- for raw pointers, mut and const serve only as linting
         (*h_target_ptr).dw_tid = GetWindowThreadProcessId(hwnd, &mut dw_pid);
 
+        HwndTarget::print_hwnd_info(hwnd, dw_pid);
+
         if (*h_target_ptr).dw_pid == dw_pid {
 
             (*h_target_ptr).hwnd = hwnd;
 
-            println!("Found HWND {:?} with --- PID: {:?} --- TID: {:?}", hwnd, dw_pid, (*h_target_ptr).dw_tid);
+            println!("Found [HWND: {:?}] with --- [PID: {:?}] --- [TID: {:?}]", hwnd, dw_pid, (*h_target_ptr).dw_tid);
 
-            //TODO: sleep is just for debug -- remove later
-            sleep(Duration::from_millis(1000));
+            //Sleep is just for debug -- remove later
+            sleep(Duration::from_millis(2000));
 
-            println!("Focused HWND is {:?}", GetForegroundWindow());
+            println!("Focused [HWND: {:?}]", GetForegroundWindow());
 
             //Found hwnd --- FALSE is an i32
             return FALSE
@@ -67,6 +126,21 @@ impl HwndTarget {
 
         //Continue enumeration w/ EnumWindows --- TRUE is an i32
         TRUE
+
+    }
+
+    //TODO: Create a logger
+    unsafe fn print_hwnd_info(hwnd: HWND, dw_pid: DWORD) {
+
+        let mut hwnd_name: Vec<CHAR> = Vec::with_capacity(1024);
+
+        match GetWindowTextA(hwnd, hwnd_name.as_mut_ptr(), 1024) {
+
+            0 => (),
+
+            _ => println!("[HWND: {:?}] --- [PID: {:?}] --- [Window: {:?}]", hwnd, dw_pid, CStr::from_ptr(hwnd_name.as_mut_ptr())),
+
+        };
 
     }
 

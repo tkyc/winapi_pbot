@@ -2,6 +2,7 @@ mod utils;
 
 use utils::keyboard;
 use utils::keyboard::VirtualKey;
+use utils::window;
 
 use std::mem;
 use std::ffi::CStr;
@@ -151,19 +152,6 @@ pub unsafe extern "system" fn send_key_to(window: &TargetWindow) {
 //TODO: Free memory
 fn main() {
 
-    const TARGET_DW_PROC_ID: DWORD = 0xD3C;
-
-    let mut target: TargetWindow = unsafe {
-        TargetWindow {
-            dw_proc_id: 7884,
-            dw_thread_id: 0x0,
-            hwnd: FindWindowW(
-                0x0 as *const WCHAR as LPCWSTR,
-                0x0 as *const WCHAR as LPCWSTR,
-            ),
-        }
-    };
-
     //let target_hwnd: *mut TargetWindow = &mut designated_hwnd; //--- Raw pointer
     let window_name: Vec<char> = "Untitled - Notepad".chars().collect();
 
@@ -176,7 +164,11 @@ fn main() {
         )
     };
 
-    unsafe { EnumWindows(Some(enum_wnd_proc), &mut target as *mut TargetWindow as LPARAM) };
+    //Target is Zulu Platform x64 Architecture
+    let mut h_target = window::HwndTarget::from_pid(5296);
+
+    unsafe { h_target.get_base_addr(String::from("THREADSTACK1")) };
+
 
     //unsafe { send_key_to(&target) };
 
@@ -235,20 +227,9 @@ fn main() {
     //}
 
 
-   //TODO: https://codingvision.net/security/c-read-write-another-process-memory 
-   //TODO: https://www.12ghast.com/code/c-process-name-to-pid/
-   //TODO: https://users.rust-lang.org/t/comparing-a-string-to-an-array-of-i8/5120/4
-   //let process_handle: HANDLE = OpenProcess(PROCESS_WM_READ, 0, dwProcessId: DWORD);
-   //https://stackoverflow.com/questions/12099957/how-to-send-a-keystroke-to-an-other-process-ex-a-notepad
-   //https://stackoverflow.com/questions/20162359/c-best-way-to-get-window-handle-of-the-only-window-from-a-process-by-process
-   //https://github.com/retep998/winapi-rs/issues/746
-   //https://dailyoverdose.wordpress.com/2009/10/28/postmessage-and-sendmessage/
-   //https://stackoverflow.com/questions/11890972/simulating-key-press-with-postmessage-only-works-in-some-applications
-   //https://stackoverflow.com/questions/22419038/how-to-use-sendinput-function-c
-   //https://gist.github.com/lucia7777/d1c1b512d6843071144b7b89109a8de2
-   //https://www.autohotkey.com/boards/viewtopic.php?t=38118
-   //http://forums.codeguru.com/showthread.php?555185-RESOLVED-how-use-SendInput()-for-a-non-focus-window
    //https://github.com/enigo-rs/enigo
    //https://github.com/enigo-rs/enigo/blob/master/src/win/win_impl.rs
    //https://stackoverflow.com/questions/9503027/pinvoke-setfocus-to-a-particular-control/9547099#9547099
+   //https://www.youtube.com/watch?v=Mm3ZK3uAeuo
+   //https://forum.cheatengine.org/viewtopic.php?t=582604
 }
