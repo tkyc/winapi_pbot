@@ -5,8 +5,11 @@ use std::time::Duration;
 use winapi::um::tlhelp32::{
     CreateToolhelp32Snapshot,
     Module32First,
+    Thread32First,
     MODULEENTRY32,
+    THREADENTRY32,
     TH32CS_SNAPMODULE,
+    TH32CS_SNAPTHREAD,
 };
 use winapi::um::handleapi::{
     CloseHandle,
@@ -34,6 +37,16 @@ use winapi::um::winuser::{
 
 
 
+enum Entry {
+
+    Module,
+
+    Thread,
+
+}
+
+
+
 pub struct HwndTarget {
     dw_pid: DWORD,
     dw_tid: DWORD,
@@ -58,34 +71,68 @@ impl HwndTarget {
 
     }
 
-    pub unsafe fn get_base_addr(&self, module_name: String) -> DWORD {
+    unsafe fn get_base_addr(&self, module_name: String, entry: Entry) -> DWORD {
 
-        //Variable to hold the base address of the module
+        //Variable to hold the base address
         let mut base_addr: DWORD = 0x0;
 
         //Get info (snapshot) of heaps, modules and threads on the process specified by pid
-        let h_snapshot: HANDLE = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, self.dw_pid);
+        let h_snapshot: HANDLE = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPTHREAD, self.dw_pid);
 
-        //The module being looked at -- getting the base address for this
-        let mut me32: MODULEENTRY32 = mem::zeroed();
-        me32.dwSize = mem::size_of::<MODULEENTRY32>() as DWORD;
+        match entry {
 
-        //Find the module that matches module_name and get the address
-        while Module32First(h_snapshot, &mut me32) == TRUE {
+            Entry::Module => {
 
-            let me32_name = me32.szModule.into_iter().map(|&c| { c as u8 as char});
-            let me32_name: String = me32_name.into_iter().collect();
+                //The module being looked at -- getting the base address for this
+                let mut me32: MODULEENTRY32 = mem::zeroed();
+                me32.dwSize = mem::size_of::<MODULEENTRY32>() as DWORD;
 
-            println!("Found module [{:?}] --- searching for module [{:?}]", me32_name, module_name);
+                //Find the module that matches module_name and get the address
+                while Module32First(h_snapshot, &mut me32) == TRUE {
 
-            if me32_name.eq(&module_name) {
+                    let me32_name = me32.szModule.into_iter().map(|&c| { c as u8 as char});
+                    let me32_name: String = me32_name.into_iter().collect();
 
-                base_addr = me32.modBaseAddr as DWORD;
+                    println!("Found module [{:?}] --- searching for module [{:?}]", me32_name, module_name);
 
-                break;
+                    if me32_name.eq(&module_name) {
 
-            }
-            
+                        base_addr = me32.modBaseAddr as DWORD;
+
+                        break;
+
+                    }
+                    
+                };
+
+            },
+
+            Entry::Thread => {
+
+                //The thread being looked at -- getting the base address for this
+                let mut te32: THREADENTRY32 = mem::zeroed();
+                te32.dwSize = mem::size_of::<THREADENTRY32>() as DWORD;
+
+                //Find the module that matches module_name and get the address
+                while Thread32First(h_snapshot, &mut te32) == TRUE {
+
+                    let me32_name = me32.szModule.into_iter().map(|&c| { c as u8 as char});
+                    let me32_name: String = me32_name.into_iter().collect();
+
+                    println!("Found module [{:?}] --- searching for module [{:?}]", me32_name, module_name);
+
+                    if me32_name.eq(&module_name) {
+
+                        base_addr = me32.modBaseAddr as DWORD;
+
+                        break;
+
+                    }
+                    
+                };
+
+            },
+
         };
 
         CloseHandle(h_snapshot);
