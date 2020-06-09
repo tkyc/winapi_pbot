@@ -165,9 +165,9 @@ fn main() {
     };
 
     //Target is Zulu Platform x64 Architecture
-    let mut h_target = window::HwndTarget::from_pid(5296);
+    let mut h_target = window::HwndTarget::from_pid(7784);
 
-    unsafe { h_target.get_base_addr(String::from("THREADSTACK1")) };
+    //unsafe { h_target.get_base_addr_module_entry("THREADSTACK1") };
 
 
     //unsafe { send_key_to(&target) };

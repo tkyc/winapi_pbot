@@ -37,16 +37,6 @@ use winapi::um::winuser::{
 
 
 
-enum Entry {
-
-    Module,
-
-    Thread,
-
-}
-
-
-
 pub struct HwndTarget {
     dw_pid: DWORD,
     dw_tid: DWORD,
@@ -71,71 +61,65 @@ impl HwndTarget {
 
     }
 
-    unsafe fn get_base_addr(&self, module_name: String, entry: Entry) -> DWORD {
+    unsafe fn get_base_addr_module_entry(&self, module_name: &str) -> DWORD {
 
         //Variable to hold the base address
         let mut base_addr: DWORD = 0x0;
 
         //Get info (snapshot) of heaps, modules and threads on the process specified by pid
-        let h_snapshot: HANDLE = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPTHREAD, self.dw_pid);
+        let h_snapshot: HANDLE = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, self.dw_pid);
 
-        match entry {
+        //The module being looked at -- getting the base address for this
+        let mut me32: MODULEENTRY32 = mem::zeroed();
+        me32.dwSize = mem::size_of::<MODULEENTRY32>() as DWORD;
 
-            Entry::Module => {
+        //Find the module that matches module_name and get the address
+        while Module32First(h_snapshot, &mut me32) == TRUE {
 
-                //The module being looked at -- getting the base address for this
-                let mut me32: MODULEENTRY32 = mem::zeroed();
-                me32.dwSize = mem::size_of::<MODULEENTRY32>() as DWORD;
+            match CStr::from_ptr(me32.szModule.as_mut_ptr()).to_str() {
 
-                //Find the module that matches module_name and get the address
-                while Module32First(h_snapshot, &mut me32) == TRUE {
-
-                    let me32_name = me32.szModule.into_iter().map(|&c| { c as u8 as char});
-                    let me32_name: String = me32_name.into_iter().collect();
+                Ok(me32_name) => {
 
                     println!("Found module [{:?}] --- searching for module [{:?}]", me32_name, module_name);
 
-                    if me32_name.eq(&module_name) {
+                    if me32_name.eq(module_name) {
 
                         base_addr = me32.modBaseAddr as DWORD;
 
                         break;
 
                     }
-                    
-                };
 
-            },
+                },
 
-            Entry::Thread => {
+                Err(_e) => (),
 
-                //The thread being looked at -- getting the base address for this
-                let mut te32: THREADENTRY32 = mem::zeroed();
-                te32.dwSize = mem::size_of::<THREADENTRY32>() as DWORD;
-
-                //Find the module that matches module_name and get the address
-                while Thread32First(h_snapshot, &mut te32) == TRUE {
-
-                    let me32_name = me32.szModule.into_iter().map(|&c| { c as u8 as char});
-                    let me32_name: String = me32_name.into_iter().collect();
-
-                    println!("Found module [{:?}] --- searching for module [{:?}]", me32_name, module_name);
-
-                    if me32_name.eq(&module_name) {
-
-                        base_addr = me32.modBaseAddr as DWORD;
-
-                        break;
-
-                    }
-                    
-                };
-
-            },
-
+            };
+    
         };
 
         CloseHandle(h_snapshot);
+
+        base_addr
+
+    }
+
+    unsafe fn get_base_addr_thread_entry(&self, thread_index: u32) -> DWORD {
+
+        //Variable to hold the base address
+        let mut base_addr: DWORD = 0x0;
+
+        //The thread being looked at -- getting the base address for this
+        let mut te32: THREADENTRY32 = mem::zeroed();
+        te32.dwSize = mem::size_of::<THREADENTRY32>() as DWORD;
+
+        //Get info (snapshot) of heaps, modules and threads on the process specified by pid
+        let h_snapshot: HANDLE = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, self.dw_pid);
+
+        //Find the module that matches module_name and get the address
+        while Thread32First(h_snapshot, &mut te32) == TRUE {
+
+        };
 
         base_addr
 
