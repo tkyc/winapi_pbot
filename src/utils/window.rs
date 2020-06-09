@@ -6,6 +6,7 @@ use winapi::um::tlhelp32::{
     CreateToolhelp32Snapshot,
     Module32First,
     Thread32First,
+    Thread32Next,
     MODULEENTRY32,
     THREADENTRY32,
     TH32CS_SNAPMODULE,
@@ -66,7 +67,7 @@ impl HwndTarget {
         //Variable to hold the base address
         let mut base_addr: DWORD = 0x0;
 
-        //Get info (snapshot) of heaps, modules and threads on the process specified by pid
+        //Get info (snapshot) of modules on the process specified by pid
         let h_snapshot: HANDLE = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, self.dw_pid);
 
         //The module being looked at -- getting the base address for this
@@ -104,22 +105,30 @@ impl HwndTarget {
 
     }
 
-    unsafe fn get_base_addr_thread_entry(&self, thread_index: u32) -> DWORD {
+    pub unsafe fn get_base_addr_thread_entry(&self) -> DWORD {
 
         //Variable to hold the base address
-        let mut base_addr: DWORD = 0x0;
+        let base_addr: DWORD = 0x0;
 
         //The thread being looked at -- getting the base address for this
         let mut te32: THREADENTRY32 = mem::zeroed();
         te32.dwSize = mem::size_of::<THREADENTRY32>() as DWORD;
 
-        //Get info (snapshot) of heaps, modules and threads on the process specified by pid
-        let h_snapshot: HANDLE = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, self.dw_pid);
+        //Get info (snapshot) of threads on the process specified by pid
+        let h_snapshot: HANDLE = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0x0);
 
-        //Find the module that matches module_name and get the address
-        while Thread32First(h_snapshot, &mut te32) == TRUE {
+        //Enumeration of threads start at index 1
+        while Thread32Next(h_snapshot, &mut te32) == TRUE {
+
+            if te32.th32OwnerProcessID == self.dw_pid {
+
+                println!("TID: {:?}", te32.th32ThreadID);
+
+            }
 
         };
+
+        CloseHandle(h_snapshot);
 
         base_addr
 
