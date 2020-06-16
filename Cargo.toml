@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 winapi = {version = "0.3.8", features = ["winuser", "processthreadsapi", "memoryapi", "tlhelp32", "handleapi"] }
+ntapi = "0.3.4"

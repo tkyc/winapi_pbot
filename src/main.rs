@@ -165,7 +165,7 @@ fn main() {
     };
 
     //Target is Zulu Platform x64 Architecture
-    let mut h_target = window::HwndTarget::from_pid(7784);
+    let h_target = window::HwndTarget::from_pid(6240);
 
     unsafe { h_target.get_base_addr_thread_entry() };
 
@@ -232,4 +232,5 @@ fn main() {
    //https://stackoverflow.com/questions/9503027/pinvoke-setfocus-to-a-particular-control/9547099#9547099
    //https://www.youtube.com/watch?v=Mm3ZK3uAeuo
    //https://forum.cheatengine.org/viewtopic.php?t=582604
+   //https://stackoverflow.com/questions/11147846/how-to-retrieve-starting-address-of-a-thread-in-windows
 }

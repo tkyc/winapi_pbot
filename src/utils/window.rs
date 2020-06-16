@@ -2,6 +2,10 @@ use std::mem;
 use std::ffi::CStr;
 use std::thread::sleep;
 use std::time::Duration;
+use ntapi::ntpsapi::{
+    NtQueryInformationThread,
+    ThreadQuerySetWin32StartAddress,
+};
 use winapi::um::tlhelp32::{
     CreateToolhelp32Snapshot,
     Module32First,
@@ -12,8 +16,16 @@ use winapi::um::tlhelp32::{
     TH32CS_SNAPMODULE,
     TH32CS_SNAPTHREAD,
 };
+use winapi::um::processthreadsapi::{
+    OpenProcess,
+    OpenThread,
+};
 use winapi::um::handleapi::{
     CloseHandle,
+};
+use winapi::shared::ntdef::{
+    NTSTATUS,
+    PVOID,
 };
 use winapi::shared::windef::{
     HWND,
@@ -21,6 +33,9 @@ use winapi::shared::windef::{
 use winapi::um::winnt::{
     CHAR,
     HANDLE,
+    PROCESS_ALL_ACCESS,
+    THREAD_GET_CONTEXT,
+    THREAD_QUERY_INFORMATION,
 };
 use winapi::shared::minwindef::{
     DWORD,
@@ -108,7 +123,10 @@ impl HwndTarget {
     pub unsafe fn get_base_addr_thread_entry(&self) -> DWORD {
 
         //Variable to hold the base address
-        let base_addr: DWORD = 0x0;
+        let mut base_addr: DWORD = 0x0;
+
+        //Handle to process -- handles are abstract references/pointers to memory or files
+        let h_proc: HANDLE = OpenProcess(PROCESS_ALL_ACCESS, FALSE, self.dw_pid);
 
         //The thread being looked at -- getting the base address for this
         let mut te32: THREADENTRY32 = mem::zeroed();
@@ -121,8 +139,19 @@ impl HwndTarget {
         while Thread32Next(h_snapshot, &mut te32) == TRUE {
 
             if te32.th32OwnerProcessID == self.dw_pid {
+                
+                //Handle to thread -- handles are abstract references/pointers to memory or files
+                let h_thread: HANDLE = OpenThread(THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, te32.th32ThreadID);
 
-                println!("TID: {:?}", te32.th32ThreadID);
+                //Thread information
+                let nt_status: NTSTATUS = NtQueryInformationThread(
+                    h_thread,
+                    ThreadQuerySetWin32StartAddress,
+                    base_addr as PVOID,
+                    mem::size_of::<DWORD>() as u32,
+                    std::ptr::null_mut());
+
+                println!("[TID: {:?}] --- [Base address: {:?}]", te32.th32ThreadID, base_addr);
 
             }
 
