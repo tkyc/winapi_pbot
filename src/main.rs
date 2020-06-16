@@ -233,4 +233,5 @@ fn main() {
    //https://www.youtube.com/watch?v=Mm3ZK3uAeuo
    //https://forum.cheatengine.org/viewtopic.php?t=582604
    //https://stackoverflow.com/questions/11147846/how-to-retrieve-starting-address-of-a-thread-in-windows
+   //https://stackoverflow.com/questions/32297431/getting-the-tib-teb-of-a-thread-by-its-thread-handle-2015
 }

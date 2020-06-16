@@ -2,9 +2,14 @@ use std::mem;
 use std::ffi::CStr;
 use std::thread::sleep;
 use std::time::Duration;
+use ntapi::ntpebteb::TEB;
+use winapi::shared::ntstatus::STATUS_SUCCESS;
+use winapi::um::memoryapi::ReadProcessMemory;
 use ntapi::ntpsapi::{
     NtQueryInformationThread,
     ThreadQuerySetWin32StartAddress,
+    THREAD_BASIC_INFORMATION,
+    THREADINFOCLASS,
 };
 use winapi::um::tlhelp32::{
     CreateToolhelp32Snapshot,
@@ -33,6 +38,7 @@ use winapi::shared::windef::{
 use winapi::um::winnt::{
     CHAR,
     HANDLE,
+    NT_TIB,
     PROCESS_ALL_ACCESS,
     THREAD_GET_CONTEXT,
     THREAD_QUERY_INFORMATION,
@@ -43,6 +49,8 @@ use winapi::shared::minwindef::{
     TRUE,
     FALSE,
     LPARAM,
+    LPCVOID,
+    LPVOID,
 };
 use winapi::um::winuser::{
     GetWindowTextA,
@@ -143,15 +151,24 @@ impl HwndTarget {
                 //Handle to thread -- handles are abstract references/pointers to memory or files
                 let h_thread: HANDLE = OpenThread(THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, te32.th32ThreadID);
 
-                //Thread information
-                let nt_status: NTSTATUS = NtQueryInformationThread(
-                    h_thread,
-                    ThreadQuerySetWin32StartAddress,
-                    base_addr as PVOID,
-                    mem::size_of::<DWORD>() as u32,
-                    std::ptr::null_mut());
+                let mut tbi: THREAD_BASIC_INFORMATION = mem::zeroed();
 
-                println!("[TID: {:?}] --- [Base address: {:?}]", te32.th32ThreadID, base_addr);
+                let mut tib: NT_TIB = mem::zeroed();
+
+                //Getting thread information
+                let nt_status: NTSTATUS = NtQueryInformationThread(h_thread,
+                                                                   0x0 as THREADINFOCLASS,
+                                                                   &mut tbi as *mut THREAD_BASIC_INFORMATION as PVOID,
+                                                                   mem::size_of::<THREAD_BASIC_INFORMATION>() as u32,
+                                                                   std::ptr::null_mut());
+
+                ReadProcessMemory(h_proc,
+                                  tbi.TebBaseAddress as LPCVOID,
+                                  &mut tib as *mut NT_TIB as LPVOID,
+                                  mem::size_of::<NT_TIB>(),
+                                  std::ptr::null_mut());
+
+                println!("[Thread handle: {:?}] --- [TID: {:?}] --- [Base address: {:?}] -- [NTSTATUS: {:?}]", h_thread, te32.th32ThreadID, tib.StackBase, nt_status == STATUS_SUCCESS);
 
             }
 
