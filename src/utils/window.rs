@@ -5,6 +5,7 @@ use std::time::Duration;
 use ntapi::ntpebteb::TEB;
 use winapi::shared::ntstatus::STATUS_SUCCESS;
 use winapi::um::memoryapi::ReadProcessMemory;
+use winapi::um::libloaderapi::GetModuleHandleW;
 use ntapi::ntpsapi::{
     NtQueryInformationThread,
     ThreadQuerySetWin32StartAddress,
@@ -20,6 +21,10 @@ use winapi::um::tlhelp32::{
     THREADENTRY32,
     TH32CS_SNAPMODULE,
     TH32CS_SNAPTHREAD,
+};
+use winapi::um::psapi::{
+    GetModuleInformation,
+    MODULEINFO,
 };
 use winapi::um::processthreadsapi::{
     OpenProcess,
@@ -39,6 +44,7 @@ use winapi::um::winnt::{
     CHAR,
     HANDLE,
     NT_TIB,
+    LPCWSTR,
     PROCESS_ALL_ACCESS,
     THREAD_GET_CONTEXT,
     THREAD_QUERY_INFORMATION,
@@ -153,6 +159,7 @@ impl HwndTarget {
 
                 let mut tbi: THREAD_BASIC_INFORMATION = mem::zeroed();
 
+                //Thread information block
                 let mut tib: NT_TIB = mem::zeroed();
 
                 //Getting thread information
@@ -163,18 +170,30 @@ impl HwndTarget {
                                                                    std::ptr::null_mut());
 
                 ReadProcessMemory(h_proc,
+                                  //TebBaseAddress is a *mut
                                   tbi.TebBaseAddress as LPCVOID,
                                   &mut tib as *mut NT_TIB as LPVOID,
                                   mem::size_of::<NT_TIB>(),
                                   std::ptr::null_mut());
 
-                println!("[Thread handle: {:?}] --- [TID: {:?}] --- [Base address: {:?}] -- [NTSTATUS: {:?}]", h_thread, te32.th32ThreadID, tib.StackBase, nt_status == STATUS_SUCCESS);
+                println!("[PID: {:?}] --- [Thread handle: {:?}] --- [TID: {:?}] --- [Page address: {:?}] --- [NTSTATUS: {:?}]",
+                         te32.th32OwnerProcessID, h_thread, te32.th32ThreadID, tib.StackBase, nt_status == STATUS_SUCCESS);
+
+                let mut module_info: MODULEINFO = mem::zeroed();
+
+                GetModuleInformation(h_proc, GetModuleHandleW(String::from("kernel32.dll").as_mut_ptr() as LPCWSTR), &mut module_info, mem::size_of::<MODULEINFO>() as DWORD);
+                
+                let mut buffer: Vec<DWORD> = Vec::with_capacity(4096);
+
+                CloseHandle(h_thread);
 
             }
 
         };
 
         CloseHandle(h_snapshot);
+
+        CloseHandle(h_proc);
 
         base_addr
 
