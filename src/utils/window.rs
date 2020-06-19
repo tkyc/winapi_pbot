@@ -6,6 +6,7 @@ use ntapi::ntpebteb::TEB;
 use winapi::shared::ntstatus::STATUS_SUCCESS;
 use winapi::um::memoryapi::ReadProcessMemory;
 use winapi::um::libloaderapi::GetModuleHandleW;
+use winapi::um::libloaderapi::GetModuleHandleA;
 use ntapi::ntpsapi::{
     NtQueryInformationThread,
     ThreadQuerySetWin32StartAddress,
@@ -44,6 +45,7 @@ use winapi::um::winnt::{
     CHAR,
     HANDLE,
     NT_TIB,
+    LPCSTR,
     LPCWSTR,
     PROCESS_ALL_ACCESS,
     THREAD_GET_CONTEXT,
@@ -184,6 +186,11 @@ impl HwndTarget {
                 GetModuleInformation(h_proc, GetModuleHandleW(String::from("kernel32.dll").as_mut_ptr() as LPCWSTR), &mut module_info, mem::size_of::<MODULEINFO>() as DWORD);
                 
                 let mut buffer: Vec<DWORD> = Vec::with_capacity(4096);
+                
+                //TODO: Use FFI to C to resovle
+                let mut k32dll = String::from("kernel32.dll");
+
+                println!("MODULE_HANDLE: {:?}", GetModuleHandleA(&mut k32dll as *mut String as LPCSTR));
 
                 CloseHandle(h_thread);
 
